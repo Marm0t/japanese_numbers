@@ -56,6 +56,7 @@ function makeNumber(value) {
 
 const ALLOWED_RANGES = [10, 100, 1000, 1000000];
 const EXAM_LENGTH = 10;
+const RECENT_COOLDOWN = 7;
 const STORAGE_KEY = "kazu:v1";
 const EMPTY_STATE = {
   name: "", mode: "learning", selectedRange: null, total: 0, correct: 0, currentStreak: 0, bestStreak: 0,
@@ -88,6 +89,7 @@ let mode = state.mode === "exam" ? "exam" : "learning";
 let maxNumber = ALLOWED_RANGES.includes(Number(state.selectedRange)) ? Number(state.selectedRange) : null;
 let current = null;
 let previousValue = null;
+let recentValues = [];
 let answered = false;
 let round = 0;
 let questionStartedAt = Date.now();
@@ -136,14 +138,25 @@ function weightedFrom(items) {
   return items[items.length - 1];
 }
 
+function isOffCooldown(value) {
+  const lastIndex = recentValues.lastIndexOf(value);
+  if (lastIndex === -1) return true;
+  const stat = state.perNumber[value];
+  const stillProblematic = stat && stat.correct < stat.attempts && (stat.streak || 0) < 3;
+  const requiredGap = stillProblematic ? 3 : RECENT_COOLDOWN;
+  const questionsSince = recentValues.length - 1 - lastIndex;
+  return questionsSince >= requiredGap;
+}
+
 function learningQuestion() {
+  const recent = new Set(recentValues);
   const problemItems = Object.keys(state.perNumber)
     .map(Number)
-    .filter((value) => value >= 0 && value <= maxNumber && value !== previousValue && numberMastery(value) < 0.8)
+    .filter((value) => value >= 0 && value <= maxNumber && isOffCooldown(value) && numberMastery(value) < 0.8)
     .map(makeNumber);
   if (problemItems.length && Math.random() < 0.65) return weightedFrom(problemItems);
   let item;
-  do { item = makeNumber(Math.floor(Math.random() * (maxNumber + 1))); } while (item.value === previousValue);
+  do { item = makeNumber(Math.floor(Math.random() * (maxNumber + 1))); } while (recent.has(item.value));
   return item;
 }
 
@@ -158,6 +171,10 @@ function chooseQuestion() {
   if (mode === "exam" && examSession?.answers >= EXAM_LENGTH) return showExamResult();
   current = mode === "exam" ? examQuestion() : learningQuestion();
   previousValue = current.value;
+  if (mode === "learning") {
+    recentValues.push(current.value);
+    if (recentValues.length > RECENT_COOLDOWN) recentValues.shift();
+  }
   round += 1;
   answered = false;
   questionStartedAt = Date.now();
@@ -207,13 +224,13 @@ function submitAnswer(event) {
   recordAttempt(isCorrect, responseMs);
 
   if (isCorrect) {
-    elements.feedback.textContent = `Correct in ${formatSeconds(responseMs)}! ${current.kanji} | ${current.kana} | ${current.romaji}`;
+    elements.feedback.textContent = `Correct in ${formatSeconds(responseMs)}!\n${current.kanji} | ${current.kana} | ${current.romaji}`;
     elements.kanji.textContent = current.kanji;
     elements.feedback.className = "feedback correct";
     elements.input.classList.add("is-correct");
     finishQuestion();
   } else if (mode === "learning") {
-    elements.feedback.textContent = `Not quite (${formatSeconds(responseMs)}). Fix your answer and try again`;
+    elements.feedback.textContent = "Not quite. Fix your answer and try again";
     elements.feedback.className = "feedback wrong";
     elements.input.classList.add("is-wrong");
     elements.input.select();
@@ -268,10 +285,14 @@ function recordAttempt(isCorrect, responseMs) {
 
 function finishQuestion() {
   answered = true;
-  elements.input.readOnly = true;
   elements.button.textContent = "Next";
   elements.showAnswer.disabled = true;
-  elements.button.focus({ preventScroll: true });
+  elements.input.focus({ preventScroll: true });
+}
+
+function keepAnswerFormVisible() {
+  if (document.activeElement !== elements.input) return;
+  setTimeout(() => elements.form.scrollIntoView({ block: "center", behavior: "smooth" }), 180);
 }
 
 function revealAnswer() {
@@ -292,12 +313,14 @@ function setMode(nextMode) {
   state.mode = mode;
   round = 0;
   previousValue = null;
+  recentValues = [];
   examSession = mode === "exam" ? { answers: 0, correct: 0, totalMs: 0, used: new Set(), completed: false } : null;
   elements.learningMode.classList.toggle("active", mode === "learning");
   elements.examMode.classList.toggle("active", mode === "exam");
   elements.learningMode.setAttribute("aria-pressed", String(mode === "learning"));
   elements.examMode.setAttribute("aria-pressed", String(mode === "exam"));
   elements.modeLabel.textContent = mode === "exam" ? "Exam" : "Learn";
+  elements.timer.hidden = mode !== "exam";
   saveState();
   chooseQuestion();
 }
@@ -361,6 +384,8 @@ function selectRange(value) {
 }
 
 elements.form.addEventListener("submit", submitAnswer);
+elements.input.addEventListener("focus", keepAnswerFormVisible);
+if (window.visualViewport) window.visualViewport.addEventListener("resize", keepAnswerFormVisible);
 elements.showAnswer.addEventListener("click", revealAnswer);
 elements.form.addEventListener("keydown", (event) => {
   if (event.key !== "Enter" || !answered) return;

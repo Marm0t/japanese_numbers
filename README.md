@@ -2,6 +2,10 @@
 
 A static, adaptive Japanese number trainer. It supports selectable ranges from 0–10 to 0–1,000,000, response timing, learning and exam modes, a local profile, and statistics stored in `localStorage`.
 
+## Live version
+
+<https://marm0t.github.io/japanese_numbers/>
+
 ## Run locally
 
 ```bash

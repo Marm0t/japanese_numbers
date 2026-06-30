@@ -11,10 +11,10 @@
 <body>
   <main class="shell">
     <header class="topbar">
-      <div class="brand" aria-label="Kazu">
+      <a class="brand" href="https://marm0t.github.io/japanese_numbers/" aria-label="Kazu home">
         <span class="brand-mark" aria-hidden="true">数</span>
-        <span>Kazu</span>
-      </div>
+        <span>Kazu — Japanese Numbers</span>
+      </a>
       <button class="icon-button" id="openMenu" type="button" aria-label="Open menu">
         <span id="avatarLetter">た</span>
       </button>
@@ -25,10 +25,10 @@
       <h1 id="difficultyTitle">Choose your level</h1>
       <p>Start with a comfortable range. You can change it in the menu later.</p>
       <div class="difficulty-grid">
-        <button class="difficulty-card" type="button" data-range="10"><strong>0–10</strong><span>First numbers</span></button>
-        <button class="difficulty-card" type="button" data-range="100"><strong>0–100</strong><span>Tens</span></button>
-        <button class="difficulty-card" type="button" data-range="1000"><strong>0–1,000</strong><span>Hundreds</span></button>
-        <button class="difficulty-card" type="button" data-range="1000000"><strong>0–1,000,000</strong><span>Thousands and 万</span></button>
+        <button class="difficulty-card" type="button" data-range="10"><span class="difficulty-emoji" aria-hidden="true">👶</span><strong>0–10</strong><span>First numbers</span></button>
+        <button class="difficulty-card" type="button" data-range="100"><span class="difficulty-emoji" aria-hidden="true">🧒</span><strong>0–100</strong><span>Tens</span></button>
+        <button class="difficulty-card" type="button" data-range="1000"><span class="difficulty-emoji" aria-hidden="true">🧑</span><strong>0–1,000</strong><span>Hundreds</span></button>
+        <button class="difficulty-card" type="button" data-range="1000000"><span class="difficulty-emoji" aria-hidden="true">🥷</span><strong>0–1,000,000</strong><span>Thousands and 万</span></button>
       </div>
     </section>
 
@@ -41,7 +41,7 @@
       <section class="practice-card" aria-label="Practice">
         <div class="card-meta">
           <span id="modeLabel">Learn</span>
-          <span class="question-timer" id="questionTimer">0.0 s</span>
+          <span class="question-timer" id="questionTimer" hidden>0.0 s</span>
           <span id="roundCount">Question 1</span>
         </div>
 
@@ -53,7 +53,7 @@
           <form id="answerForm" novalidate>
             <label class="sr-only" for="answerInput">Answer in Japanese</label>
             <div class="answer-row">
-              <input id="answerInput" type="text" inputmode="text" autocomplete="off" autocapitalize="none"
+              <input id="answerInput" type="text" inputmode="text" enterkeyhint="go" autocomplete="off" autocapitalize="none"
                      spellcheck="false" placeholder="for example, sanbyaku" aria-describedby="feedback">
               <button class="primary-button" id="checkButton" type="submit">Check</button>
             </div>
@@ -92,10 +92,10 @@
       </form>
 
       <section class="menu-section">
-        <div class="menu-heading"><div><p class="eyebrow">Settings</p><h2>Range</h2></div><span id="currentRange">0–100</span></div>
+        <div class="menu-heading"><div><p class="eyebrow">Settings</p><h2>Difficulty</h2></div><span id="currentRange">0–100</span></div>
         <div class="range-options" id="rangeOptions">
-          <button type="button" data-range="10">10</button><button type="button" data-range="100">100</button>
-          <button type="button" data-range="1000">1,000</button><button type="button" data-range="1000000">1M</button>
+          <button type="button" data-range="10">👶 10</button><button type="button" data-range="100">🧒 100</button>
+          <button type="button" data-range="1000">🧑 1,000</button><button type="button" data-range="1000000">🥷 1M</button>
         </div>
       </section>
 
