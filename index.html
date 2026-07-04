@@ -106,6 +106,22 @@
           <button type="button" data-range="10">👶 10</button><button type="button" data-range="100">🧒 100</button>
           <button type="button" data-range="1000">🧑 1,000</button><button type="button" data-range="1000000">🥷 1M</button>
         </div>
+
+        <div class="setting-block">
+          <div class="setting-label"><strong>Direction</strong><span>Choose what appears in the question</span></div>
+          <div class="setting-options" id="directionOptions" role="group" aria-label="Question direction">
+            <button type="button" data-direction="number-to-text" aria-pressed="true">Number → text</button>
+            <button type="button" data-direction="text-to-number" aria-pressed="false">Text → number</button>
+          </div>
+        </div>
+
+        <label class="toggle-setting" for="spacesToggle">
+          <span><strong>Show spaces</strong><small>Separate place-value words in hiragana</small></span>
+          <span class="toggle-control">
+            <input id="spacesToggle" type="checkbox">
+            <span aria-hidden="true"></span>
+          </span>
+        </label>
       </section>
 
       <section class="menu-section" aria-labelledby="statsTitle">

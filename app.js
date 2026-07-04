@@ -27,6 +27,11 @@ const THOUSANDS = {
 };
 
 function underTenThousand(value) {
+  const parts = underTenThousandParts(value);
+  return [0, 1, 2].map((column) => parts.map((part) => part[column]).join(""));
+}
+
+function underTenThousandParts(value) {
   const parts = [];
   const thousands = Math.floor(value / 1000);
   const hundreds = Math.floor(value % 1000 / 100);
@@ -36,12 +41,11 @@ function underTenThousand(value) {
   if (hundreds) parts.push(HUNDREDS[hundreds]);
   if (tens) parts.push([`${tens === 1 ? "" : DIGITS[tens].kanji}十`, `${tens === 1 ? "" : DIGITS[tens].kana}じゅう`, `${tens === 1 ? "" : DIGITS[tens].romaji}juu`]);
   if (ones) parts.push([DIGITS[ones].kanji, DIGITS[ones].kana, DIGITS[ones].romaji]);
-
-  return [0, 1, 2].map((column) => parts.map((part) => part[column]).join(""));
+  return parts;
 }
 
 function makeNumber(value) {
-  if (value === 0) return { value: 0, kanji: "零", kana: "れい", romaji: "rei", answers: ["れい", "rei", "ゼロ", "zero"] };
+  if (value === 0) return { value: 0, kanji: "零", kana: "れい", kanaParts: ["れい"], romaji: "rei", answers: ["れい", "rei", "ゼロ", "zero"] };
   const man = Math.floor(value / 10000);
   const remainder = value % 10000;
   const high = man ? underTenThousand(man) : ["", "", ""];
@@ -49,9 +53,14 @@ function makeNumber(value) {
   const kanji = `${high[0]}${man ? "万" : ""}${low[0]}`;
   const kana = `${high[1]}${man ? "まん" : ""}${low[1]}`;
   const romaji = `${high[2]}${man ? "man" : ""}${low[2]}`;
+  const kanaParts = [];
+  if (man) {
+    kanaParts.push(...underTenThousandParts(man).map((part) => part[1]), "まん");
+  }
+  if (remainder) kanaParts.push(...underTenThousandParts(remainder).map((part) => part[1]));
   const answers = [kana, romaji];
   if (value < 10) answers.push(...(DIGITS[value].alternates || []));
-  return { value, kanji, kana, romaji, answers };
+  return { value, kanji, kana, kanaParts, romaji, answers };
 }
 
 const ALLOWED_RANGES = [10, 100, 1000, 1000000];
@@ -60,6 +69,7 @@ const RECENT_COOLDOWN = 7;
 const STORAGE_KEY = "kazu:v1";
 const EMPTY_STATE = {
   name: "", mode: "learning", selectedRange: null, total: 0, correct: 0, currentStreak: 0, bestStreak: 0,
+  questionDirection: "number-to-text", showSpaces: false,
   totalResponseMs: 0, timedAnswers: 0, daily: {}, perNumber: {}, exams: []
 };
 
@@ -76,7 +86,9 @@ const elements = {
   difficultyScreen: qs("#difficultyScreen"), trainerScreen: qs("#trainerScreen"), difficultyButtons: document.querySelectorAll(".difficulty-card"),
   menu: qs("#menuDialog"), openMenu: qs("#openMenu"), closeMenu: qs("#closeMenu"), nameForm: qs("#nameForm"),
   nameInput: qs("#nameInput"), editName: qs("#editName"), profileName: qs("#profileName"), avatar: qs("#avatarLetter"),
-  menuAvatar: qs("#menuAvatar"), currentRange: qs("#currentRange"), rangeButtons: document.querySelectorAll("#rangeOptions button")
+  menuAvatar: qs("#menuAvatar"), currentRange: qs("#currentRange"), rangeButtons: document.querySelectorAll("#rangeOptions button"),
+  directionButtons: document.querySelectorAll("#directionOptions button"), spacesToggle: qs("#spacesToggle"),
+  answerLabel: qs("label[for='answerInput']")
 };
 
 let state = loadState();
@@ -86,6 +98,9 @@ if (!state.name || /[\u0400-\u04ff]/i.test(state.name)) {
   saveState();
 }
 let mode = state.mode === "exam" ? "exam" : "learning";
+let questionDirection = state.questionDirection === "text-to-number" ? "text-to-number" : "number-to-text";
+state.questionDirection = questionDirection;
+state.showSpaces = Boolean(state.showSpaces);
 let maxNumber = ALLOWED_RANGES.includes(Number(state.selectedRange)) ? Number(state.selectedRange) : null;
 let current = null;
 let previousValue = null;
@@ -180,24 +195,74 @@ function chooseQuestion() {
   questionStartedAt = Date.now();
   elements.practiceContent.hidden = false;
   elements.examResult.hidden = true;
-  elements.number.textContent = current.value;
-  elements.kanji.textContent = "";
+  renderQuestionPrompt();
+  elements.kanji.textContent = questionDirection === "text-to-number" ? current.kanji : "";
   elements.round.textContent = mode === "exam" ? `${round} / ${EXAM_LENGTH}` : `Question ${round}`;
   elements.input.value = "";
-  elements.input.placeholder = maxNumber <= 10 ? "for example, nana" : maxNumber <= 100 ? "for example, yonjuu" : maxNumber <= 1000 ? "for example, sanbyaku" : "for example, ichiman";
+  if (questionDirection === "text-to-number") {
+    elements.input.placeholder = maxNumber <= 10 ? "for example, 7" : maxNumber <= 100 ? "for example, 40" : maxNumber <= 1000 ? "for example, 300" : "for example, 10000";
+    elements.input.inputMode = "numeric";
+    elements.answerLabel.textContent = "Answer with Arabic numerals";
+  } else {
+    elements.input.placeholder = maxNumber <= 10 ? "for example, nana" : maxNumber <= 100 ? "for example, yonjuu" : maxNumber <= 1000 ? "for example, sanbyaku" : "for example, ichiman";
+    elements.input.inputMode = "text";
+    elements.answerLabel.textContent = "Answer in Japanese";
+  }
   elements.input.className = "";
   elements.input.readOnly = false;
   elements.button.textContent = "Check";
   elements.showAnswer.hidden = mode === "exam";
   elements.showAnswer.disabled = false;
   elements.feedback.className = "feedback";
-  elements.feedback.textContent = mode === "exam" ? "One attempt · no hints" : "Answer in hiragana or romaji";
+  elements.feedback.textContent = mode === "exam" ? "One attempt · no hints" : questionDirection === "text-to-number" ? "Answer with Arabic numerals" : "Answer in hiragana or romaji";
   updateTimer();
   elements.input.focus({ preventScroll: true });
 }
 
+function renderQuestionPrompt() {
+  const isTextPrompt = questionDirection === "text-to-number";
+  elements.number.classList.toggle("text-question", isTextPrompt);
+  elements.number.classList.toggle("two-line-question", isTextPrompt && maxNumber === 1000000);
+  elements.number.style.fontSize = "";
+  elements.number.style.whiteSpace = "";
+  elements.number.textContent = isTextPrompt
+    ? (state.showSpaces ? current.kanaParts.join(" ") : current.kana)
+    : current.value.toLocaleString("en-US", { useGrouping: false });
+  if (isTextPrompt) requestAnimationFrame(fitQuestionText);
+}
+
+function fitQuestionText() {
+  if (questionDirection !== "text-to-number" || !current) return;
+  const prompt = elements.number;
+  const wrap = prompt.parentElement;
+  const allowedLines = maxNumber === 1000000 ? 2 : 1;
+  prompt.style.whiteSpace = "nowrap";
+  prompt.style.fontSize = "";
+  const naturalSize = parseFloat(getComputedStyle(prompt).fontSize);
+  const availableWidth = Math.max(1, wrap.clientWidth - 8);
+  const naturalWidth = prompt.scrollWidth;
+  const targetWidth = availableWidth * (allowedLines === 2 ? 1.82 : 1);
+  const fittedSize = Math.max(14, Math.min(naturalSize, naturalSize * targetWidth / naturalWidth));
+  prompt.style.fontSize = `${fittedSize}px`;
+  prompt.style.whiteSpace = allowedLines === 2 ? "normal" : "nowrap";
+}
+
 function normalize(value) {
   return value.trim().toLowerCase().replace(/[\s\-–—_.']/g, "").replace(/ō/g, "ou").replace(/ū/g, "uu");
+}
+
+function normalizeNumericAnswer(value) {
+  const normalized = value.trim()
+    .replace(/[０-９]/g, (digit) => String(digit.charCodeAt(0) - 0xFF10))
+    .replace(/[\s,._']/g, "");
+  return /^\d+$/.test(normalized) ? Number(normalized) : null;
+}
+
+function showReverseAnswer(prefix, className) {
+  const number = document.createElement("strong");
+  number.textContent = current.value.toLocaleString("en-US");
+  elements.feedback.replaceChildren(document.createTextNode(`${prefix}\n${current.romaji} · `), number);
+  elements.feedback.className = className;
 }
 
 function elapsedMs() { return Math.max(0, Date.now() - questionStartedAt); }
@@ -210,8 +275,9 @@ function updateTimer() {
 function submitAnswer(event) {
   event.preventDefault();
   if (answered) return chooseQuestion();
-  const answer = normalize(elements.input.value);
-  if (!answer) {
+  const rawAnswer = elements.input.value;
+  const answer = questionDirection === "text-to-number" ? normalizeNumericAnswer(rawAnswer) : normalize(rawAnswer);
+  if (answer === "" || answer === null) {
     elements.feedback.textContent = "Enter an answer first";
     elements.feedback.className = "feedback wrong";
     elements.input.focus();
@@ -219,12 +285,16 @@ function submitAnswer(event) {
   }
 
   const responseMs = elapsedMs();
-  const isCorrect = current.answers.some((valid) => normalize(valid) === answer);
+  const isCorrect = questionDirection === "text-to-number"
+    ? answer === current.value
+    : current.answers.some((valid) => normalize(valid) === answer);
   elements.input.classList.remove("is-correct", "is-wrong");
   recordAttempt(isCorrect, responseMs);
 
   if (isCorrect) {
-    elements.feedback.textContent = `Correct in ${formatSeconds(responseMs)}!\n${current.kanji} | ${current.kana} | ${current.romaji}`;
+    elements.feedback.textContent = questionDirection === "text-to-number"
+      ? `Correct in ${formatSeconds(responseMs)}!`
+      : `Correct in ${formatSeconds(responseMs)}!\n${current.kanji} | ${current.kana} | ${current.romaji}`;
     elements.kanji.textContent = current.kanji;
     elements.feedback.className = "feedback correct";
     elements.input.classList.add("is-correct");
@@ -236,9 +306,10 @@ function submitAnswer(event) {
     elements.input.select();
     questionStartedAt = Date.now();
   } else {
-    elements.feedback.textContent = `Incorrect. ${current.kanji} | ${current.kana} | ${current.romaji}`;
+    if (questionDirection === "text-to-number") showReverseAnswer("Incorrect.", "feedback wrong");
+    else elements.feedback.textContent = `Incorrect. ${current.kanji} | ${current.kana} | ${current.romaji}`;
     elements.kanji.textContent = current.kanji;
-    elements.feedback.className = "feedback wrong";
+    if (questionDirection !== "text-to-number") elements.feedback.className = "feedback wrong";
     elements.input.classList.add("is-wrong");
     finishQuestion();
   }
@@ -301,8 +372,11 @@ function revealAnswer() {
   recordAttempt(false, responseMs);
   elements.input.classList.remove("is-wrong");
   elements.kanji.textContent = current.kanji;
-  elements.feedback.textContent = `Answer:\n${current.kanji} | ${current.kana} | ${current.romaji}`;
-  elements.feedback.className = "feedback correct";
+  if (questionDirection === "text-to-number") showReverseAnswer("Answer:", "feedback correct");
+  else {
+    elements.feedback.textContent = `Answer:\n${current.kanji} | ${current.kana} | ${current.romaji}`;
+    elements.feedback.className = "feedback correct";
+  }
   finishQuestion();
   saveState();
   renderStats();
@@ -323,6 +397,24 @@ function setMode(nextMode) {
   elements.timer.hidden = mode !== "exam";
   saveState();
   chooseQuestion();
+}
+
+function setQuestionDirection(direction) {
+  if (!["number-to-text", "text-to-number"].includes(direction) || direction === questionDirection) return;
+  questionDirection = direction;
+  state.questionDirection = direction;
+  saveState();
+  renderSettings();
+  if (maxNumber !== null) setMode(mode);
+}
+
+function renderSettings() {
+  elements.directionButtons.forEach((button) => {
+    const active = button.dataset.direction === questionDirection;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
+  elements.spacesToggle.checked = state.showSpaces;
 }
 
 function showExamResult() {
@@ -368,6 +460,7 @@ function renderStats() {
   } else {
     elements.currentRange.textContent = "Not selected";
   }
+  renderSettings();
 }
 
 function selectRange(value) {
@@ -398,6 +491,12 @@ elements.restartExam.addEventListener("click", () => setMode("exam"));
 elements.returnLearning.addEventListener("click", () => setMode("learning"));
 elements.difficultyButtons.forEach((button) => button.addEventListener("click", () => selectRange(button.dataset.range)));
 elements.rangeButtons.forEach((button) => button.addEventListener("click", () => selectRange(button.dataset.range)));
+elements.directionButtons.forEach((button) => button.addEventListener("click", () => setQuestionDirection(button.dataset.direction)));
+elements.spacesToggle.addEventListener("change", () => {
+  state.showSpaces = elements.spacesToggle.checked;
+  saveState();
+  if (current && questionDirection === "text-to-number" && !answered) renderQuestionPrompt();
+});
 elements.openMenu.addEventListener("click", () => {
   renderStats();
   elements.nameForm.hidden = true;
@@ -418,7 +517,7 @@ elements.nameForm.addEventListener("submit", (event) => {
 });
 elements.reset.addEventListener("click", () => {
   if (!confirm("Reset all statistics? Your name will be kept.")) return;
-  state = { ...EMPTY_STATE, name: state.name, mode, selectedRange: maxNumber, daily: {}, perNumber: {}, exams: [] };
+  state = { ...EMPTY_STATE, name: state.name, mode, selectedRange: maxNumber, questionDirection, showSpaces: state.showSpaces, daily: {}, perNumber: {}, exams: [] };
   saveState();
   renderStats();
 });
@@ -433,3 +532,6 @@ if (maxNumber === null) {
   setMode(mode);
 }
 setInterval(updateTimer, 200);
+window.addEventListener("resize", () => {
+  if (questionDirection === "text-to-number" && current) requestAnimationFrame(fitQuestionText);
+});
