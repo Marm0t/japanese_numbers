@@ -67,9 +67,10 @@ const ALLOWED_RANGES = [10, 100, 1000, 1000000];
 const EXAM_LENGTH = 10;
 const RECENT_COOLDOWN = 7;
 const STORAGE_KEY = "kazu:v1";
+const FONT_STYLE_VERSION_KEY = "kazu:font-style:v2";
 const EMPTY_STATE = {
   name: "", mode: "learning", selectedRange: null, total: 0, correct: 0, currentStreak: 0, bestStreak: 0,
-  questionDirection: "number-to-text", showSpaces: false,
+  questionDirection: "number-to-text", showSpaces: false, writingFont: "handwritten",
   totalResponseMs: 0, timedAnswers: 0, daily: {}, perNumber: {}, exams: []
 };
 
@@ -88,10 +89,18 @@ const elements = {
   nameInput: qs("#nameInput"), editName: qs("#editName"), profileName: qs("#profileName"), avatar: qs("#avatarLetter"),
   menuAvatar: qs("#menuAvatar"), currentRange: qs("#currentRange"), rangeButtons: document.querySelectorAll("#rangeOptions button"),
   directionButtons: document.querySelectorAll("#directionOptions button"), spacesToggle: qs("#spacesToggle"),
+  fontButtons: document.querySelectorAll("#fontOptions button"),
   answerLabel: qs("label[for='answerInput']")
 };
 
 let state = loadState();
+if (!localStorage.getItem(FONT_STYLE_VERSION_KEY)) {
+  // In the first font-toggle implementation the old handwritten face was
+  // accidentally labeled as Print. Migrate that short-lived setting once.
+  state.writingFont = "handwritten";
+  localStorage.setItem(FONT_STYLE_VERSION_KEY, "2");
+  saveState();
+}
 const FUNNY_NAMES = ["Sleepy Tanuki", "Mochi Ninja", "Capybara Sensei", "Rice Samurai", "Udon Fox", "Serious Penguin"];
 if (!state.name || /[\u0400-\u04ff]/i.test(state.name)) {
   state.name = FUNNY_NAMES[Math.floor(Math.random() * FUNNY_NAMES.length)];
@@ -101,6 +110,7 @@ let mode = state.mode === "exam" ? "exam" : "learning";
 let questionDirection = state.questionDirection === "text-to-number" ? "text-to-number" : "number-to-text";
 state.questionDirection = questionDirection;
 state.showSpaces = Boolean(state.showSpaces);
+state.writingFont = state.writingFont === "print" ? "print" : "handwritten";
 let maxNumber = ALLOWED_RANGES.includes(Number(state.selectedRange)) ? Number(state.selectedRange) : null;
 let current = null;
 let previousValue = null;
@@ -415,6 +425,13 @@ function renderSettings() {
     button.setAttribute("aria-pressed", String(active));
   });
   elements.spacesToggle.checked = state.showSpaces;
+  elements.number.classList.toggle("handwritten", state.writingFont === "handwritten");
+  elements.kanji.classList.toggle("handwritten", state.writingFont === "handwritten");
+  elements.fontButtons.forEach((button) => {
+    const active = button.dataset.font === state.writingFont;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
 }
 
 function showExamResult() {
@@ -471,7 +488,6 @@ function selectRange(value) {
   state.currentStreak = 0;
   elements.difficultyScreen.hidden = true;
   elements.trainerScreen.hidden = false;
-  if (elements.menu.open) elements.menu.close();
   renderStats();
   setMode("learning");
 }
@@ -497,12 +513,19 @@ elements.spacesToggle.addEventListener("change", () => {
   saveState();
   if (current && questionDirection === "text-to-number" && !answered) renderQuestionPrompt();
 });
+elements.fontButtons.forEach((button) => button.addEventListener("click", () => {
+  state.writingFont = button.dataset.font === "handwritten" ? "handwritten" : "print";
+  saveState(); renderSettings();
+}));
 elements.openMenu.addEventListener("click", () => {
   renderStats();
   elements.nameForm.hidden = true;
   elements.menu.showModal();
 });
 elements.closeMenu.addEventListener("click", () => elements.menu.close());
+elements.menu.addEventListener("click", (event) => {
+  if (event.target === elements.menu) elements.menu.close();
+});
 elements.editName.addEventListener("click", () => {
   elements.nameInput.value = state.name;
   elements.nameForm.hidden = false;
@@ -516,8 +539,8 @@ elements.nameForm.addEventListener("submit", (event) => {
   elements.nameForm.hidden = true;
 });
 elements.reset.addEventListener("click", () => {
-  if (!confirm("Reset all statistics? Your name will be kept.")) return;
-  state = { ...EMPTY_STATE, name: state.name, mode, selectedRange: maxNumber, questionDirection, showSpaces: state.showSpaces, daily: {}, perNumber: {}, exams: [] };
+  if (!confirm("Reset all statistics? Your name and settings will be kept.")) return;
+  state = { ...EMPTY_STATE, name: state.name, mode, selectedRange: maxNumber, questionDirection, showSpaces: state.showSpaces, writingFont: state.writingFont, daily: {}, perNumber: {}, exams: [] };
   saveState();
   renderStats();
 });
