@@ -45,7 +45,7 @@ function underTenThousandParts(value) {
 }
 
 function makeNumber(value) {
-  if (value === 0) return { value: 0, kanji: "零", kana: "れい", kanaParts: ["れい"], romaji: "rei", answers: ["れい", "rei", "ゼロ", "zero"] };
+  if (value === 0) return { value: 0, kanji: "零", kana: "れい", kanaParts: ["れい"], romaji: "rei", answers: ["零", "れい", "rei", "ゼロ", "zero"] };
   const man = Math.floor(value / 10000);
   const remainder = value % 10000;
   const high = man ? underTenThousand(man) : ["", "", ""];
@@ -58,7 +58,7 @@ function makeNumber(value) {
     kanaParts.push(...underTenThousandParts(man).map((part) => part[1]), "まん");
   }
   if (remainder) kanaParts.push(...underTenThousandParts(remainder).map((part) => part[1]));
-  const answers = [kana, romaji];
+  const answers = [kanji, kana, romaji];
   if (value < 10) answers.push(...(DIGITS[value].alternates || []));
   return { value, kanji, kana, kanaParts, romaji, answers };
 }
@@ -224,7 +224,7 @@ function chooseQuestion() {
   elements.showAnswer.hidden = mode === "exam";
   elements.showAnswer.disabled = false;
   elements.feedback.className = "feedback";
-  elements.feedback.textContent = mode === "exam" ? "One attempt · no hints" : questionDirection === "text-to-number" ? "Answer with Arabic numerals" : "Answer in hiragana or romaji";
+  elements.feedback.textContent = mode === "exam" ? "One attempt · no hints" : questionDirection === "text-to-number" ? "Answer with Arabic numerals" : "Answer in hiragana, romaji, or kanji";
   updateTimer();
   elements.input.focus({ preventScroll: true });
 }
