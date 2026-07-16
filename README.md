@@ -1,10 +1,21 @@
 # Kazu
 
-A static, adaptive Japanese number trainer. It supports selectable ranges from 0–10 to 0–1,000,000, response timing, learning and exam modes, a local profile, and statistics stored in `localStorage`.
+Kazu is a free Japanese numbers trainer and counting practice web app for learning Japanese numerals, kanji, hiragana, and romaji. Practice counting from 0 to 1,000,000 with adaptive exercises, exam mode, instant feedback, and local progress tracking.
 
 ## Live version
 
-<https://marm0t.github.io/japanese_numbers/>
+<https://kazu.marmotan.ru/>
+
+## Hosted at
+
+`https://kazu.marmotan.ru/`
+
+## Features
+
+- Adaptive Japanese number practice for kanji, hiragana, romaji and Arabic numerals
+- Learning and exam modes for Japanese numerals, counting and reading practice
+- Number ranges from 0–10 up to 0–1,000,000
+- Local profile, progress tracking, streaks, accuracy, response timing and mastery
 
 ## Run locally
 
