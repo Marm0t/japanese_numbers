@@ -63,7 +63,7 @@ function makeNumber(value) {
   return { value, kanji, kana, kanaParts, romaji, answers };
 }
 
-const ALLOWED_RANGES = [10, 100, 1000, 1000000];
+const ALLOWED_RANGES = [10, 100, 1000, 100000, 1000000];
 const EXAM_LENGTH = 10;
 const RECENT_COOLDOWN = 7;
 const STORAGE_KEY = "kazu:v1";
